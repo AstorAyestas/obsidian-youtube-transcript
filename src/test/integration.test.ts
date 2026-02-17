@@ -1,8 +1,8 @@
 /**
- * Test for YouTube transcript fetching using youtube-transcript-plus
+ * Integration test - fetches real transcript from YouTube
+ * Run locally only (not in CI - YouTube blocks runner IPs)
  *
- * Uses example.md as the test input
- * Run with: npx tsx src/test/transcript.test.ts
+ * Run with: npm run test:integration
  */
 
 import { readFileSync } from "fs";

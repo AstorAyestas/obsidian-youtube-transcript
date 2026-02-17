@@ -11,7 +11,8 @@
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "version": "node version-bump.mjs && git add manifest.json versions.json",
     "lint": "npx eslint .",
-    "test": "npx tsx src/test/transcript.test.ts"
+    "test": "npx tsx src/test/unit.test.ts",
+    "test:integration": "npx tsx src/test/integration.test.ts"
   },
   "keywords": [
     "obsidian",
@@ -28,6 +29,7 @@
     "globals": "14.0.0",
     "jiti": "2.6.1",
     "tslib": "2.4.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "8.35.1"
   },
