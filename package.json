@@ -1,0 +1,38 @@
+{
+  "name": "obsidian-youtube-transcript",
+  "version": "1.0.0",
+  "description": "Fetch and add YouTube video transcripts to your Obsidian notes. Works great with Obsidian Clipper.",
+  "main": "main.js",
+  "type": "module",
+  "author": "Astor Ayestas",
+  "license": "MIT",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "version": "node version-bump.mjs && git add manifest.json versions.json",
+    "lint": "npx eslint .",
+    "test": "npx tsx src/test/transcript.test.ts"
+  },
+  "keywords": [
+    "obsidian",
+    "youtube",
+    "transcript",
+    "clipper"
+  ],
+  "devDependencies": {
+    "@eslint/js": "9.30.1",
+    "@eslint/json": "^0.14.0",
+    "@types/node": "^16.11.6",
+    "esbuild": "0.25.5",
+    "eslint-plugin-obsidianmd": "0.1.9",
+    "globals": "14.0.0",
+    "jiti": "2.6.1",
+    "tslib": "2.4.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "8.35.1"
+  },
+  "dependencies": {
+    "obsidian": "latest",
+    "youtube-transcript-plus": "^1.2.0"
+  }
+}
