@@ -1,6 +1,6 @@
 {
   "name": "obsidian-youtube-transcript",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Fetch and add YouTube video transcripts to your Obsidian notes. Works great with Obsidian Clipper.",
   "main": "main.js",
   "type": "module",
