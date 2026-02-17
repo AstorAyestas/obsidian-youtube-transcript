@@ -1,7 +1,7 @@
 /**
- * Test for YouTube transcript fetching and HTML entity decoding
+ * Test for YouTube transcript fetching using youtube-transcript-plus
  *
- * Uses example.md as the test input and functions from src/youtube/
+ * Uses example.md as the test input
  * Run with: npx tsx src/test/transcript.test.ts
  */
 
@@ -10,13 +10,10 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 import { findYouTubeUrls, extractVideoId } from "../youtube/detector.js";
-import { parseTranscriptXml, decodeXmlEntities } from "../youtube/parser.js";
+import { fetchTranscript as ytFetchTranscript } from "youtube-transcript-plus";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EXAMPLE_FILE = resolve(__dirname, "./example.md");
-
-const USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 // HTML entity patterns that should NOT appear in decoded text
 const ENTITY_PATTERNS = [
@@ -25,12 +22,31 @@ const ENTITY_PATTERNS = [
   /&(amp|lt|gt|quot|apos|nbsp);/g,
 ];
 
-interface PlayerResponse {
-  captions?: {
-    playerCaptionsTracklistRenderer?: {
-      captionTracks?: Array<{ baseUrl?: string; languageCode?: string }>;
-    };
-  };
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+
+/**
+ * Decode HTML/XML entities - same as in transcript.ts
+ */
+function decodeEntities(text: string): string {
+  const decode = (input: string): string =>
+    input.replace(
+      /&(?:#(\d+)|#x([a-fA-F0-9]+)|(\w+));/g,
+      (match: string, dec?: string, hex?: string, named?: string): string => {
+        if (dec) return String.fromCharCode(parseInt(dec, 10));
+        if (hex) return String.fromCharCode(parseInt(hex, 16));
+        if (named && NAMED_ENTITIES[named]) return NAMED_ENTITIES[named];
+        return match;
+      },
+    );
+
+  return decode(decode(text));
 }
 
 function findUndecodedEntities(text: string): string[] {
@@ -42,57 +58,9 @@ function findUndecodedEntities(text: string): string[] {
   return [...new Set(found)];
 }
 
-async function fetchTranscriptXml(
-  videoId: string,
-): Promise<{ xml: string; lang: string }> {
-  // Get API key from watch page
-  const watchRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-    headers: { "User-Agent": USER_AGENT },
-  });
-  const html = await watchRes.text();
-
-  const apiKeyMatch = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/);
-  if (!apiKeyMatch?.[1]) throw new Error("Could not find API key");
-
-  // Get caption tracks from player API
-  const playerRes = await fetch(
-    `https://www.youtube.com/youtubei/v1/player?key=${apiKeyMatch[1]}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": USER_AGENT },
-      body: JSON.stringify({
-        context: {
-          client: { clientName: "ANDROID", clientVersion: "20.10.38" },
-        },
-        videoId,
-      }),
-    },
-  );
-
-  const player = (await playerRes.json()) as PlayerResponse;
-  const tracks =
-    player.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-
-  if (!tracks?.length) throw new Error("No caption tracks found");
-
-  const track = tracks[0];
-  if (!track?.baseUrl) throw new Error("No baseUrl in track");
-
-  // Fetch transcript XML
-  const transcriptUrl = track.baseUrl.replace(/&fmt=[^&]+/, "");
-  const transcriptRes = await fetch(transcriptUrl, {
-    headers: { "User-Agent": USER_AGENT },
-  });
-
-  return {
-    xml: await transcriptRes.text(),
-    lang: track.languageCode ?? "en",
-  };
-}
-
 async function runTest(): Promise<void> {
   console.log("=".repeat(60));
-  console.log("YouTube Transcript Test");
+  console.log("YouTube Transcript Test (using youtube-transcript-plus)");
   console.log("=".repeat(60));
 
   // Step 1: Read example.md and extract video ID
@@ -116,15 +84,17 @@ async function runTest(): Promise<void> {
   }
   console.log(`    Video ID: ${videoId}`);
 
-  // Step 3: Fetch transcript XML
-  console.log("\n[3] Fetching transcript from YouTube...");
-  const { xml, lang } = await fetchTranscriptXml(videoId);
-  console.log(`    XML received (${xml.length} chars, lang: ${lang})`);
+  // Step 3: Fetch transcript using the library
+  console.log("\n[3] Fetching transcript using youtube-transcript-plus...");
+  const rawEntries = await ytFetchTranscript(videoId, { lang: "en" });
+  console.log(`    Fetched ${rawEntries.length} entries`);
 
-  // Step 4: Parse using the actual parseTranscriptXml function
-  console.log("\n[4] Parsing transcript...");
-  const entries = parseTranscriptXml(xml, lang);
-  console.log(`    Parsed ${entries.length} entries`);
+  // Step 4: Apply our entity decoding (same as transcript.ts wrapper)
+  console.log("\n[4] Decoding HTML entities...");
+  const entries = rawEntries.map((entry) => ({
+    ...entry,
+    text: decodeEntities(entry.text),
+  }));
 
   // Step 5: Check for undecoded entities
   console.log("\n[5] Checking for undecoded HTML entities...");
@@ -156,22 +126,45 @@ async function runTest(): Promise<void> {
   // Step 6: Show sample output
   console.log("\n[6] Sample entries:");
   for (const entry of entries.slice(0, 3)) {
-    if (entry) console.log(`    "${entry.text}"`);
+    if (entry) {
+      console.log(`    [${entry.offset}ms] "${entry.text}"`);
+    }
   }
 
-  // Step 7: Test decodeXmlEntities directly
-  console.log("\n[7] Testing decodeXmlEntities function...");
+  // Step 7: Verify entry structure
+  console.log("\n[7] Verifying entry structure...");
+  const firstEntry = entries[0];
+  if (!firstEntry) {
+    console.error("    FAILED: No entries returned");
+    process.exit(1);
+  }
+
+  const hasRequiredFields =
+    typeof firstEntry.text === "string" &&
+    typeof firstEntry.offset === "number" &&
+    typeof firstEntry.duration === "number";
+
+  if (!hasRequiredFields) {
+    console.error("    FAILED: Entry missing required fields");
+    console.error(`    Got: ${JSON.stringify(firstEntry)}`);
+    process.exit(1);
+  }
+  console.log("    PASSED: Entry has text, offset, and duration");
+
+  // Step 8: Test decodeEntities function directly
+  console.log("\n[8] Testing decodeEntities function...");
   const testCases = [
-    { input: "Let&amp;#39;s go", expected: "Let's go" },
+    { input: "Let&#39;s go", expected: "Let's go" },
     { input: "A &amp; B", expected: "A & B" },
     { input: "&lt;tag&gt;", expected: "<tag>" },
     { input: "&#60;&#62;", expected: "<>" },
     { input: "Normal text", expected: "Normal text" },
+    { input: "&amp;#39;", expected: "'" }, // Double-encoded
   ];
 
   let allPassed = true;
   for (const { input, expected } of testCases) {
-    const result = decodeXmlEntities(input);
+    const result = decodeEntities(input);
     const passed = result === expected;
     console.log(
       `    ${passed ? "✓" : "✗"} "${input}" → "${result}"${passed ? "" : ` (expected "${expected}")`}`,

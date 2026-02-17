@@ -1,9 +1,4 @@
-export interface TranscriptEntry {
-  text: string;
-  duration: number;
-  offset: number;
-  lang?: string;
-}
+export type { TranscriptResponse as TranscriptEntry } from "youtube-transcript-plus";
 
 export interface YouTubeTranscriptSettings {
   language: string;

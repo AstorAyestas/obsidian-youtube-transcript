@@ -80,7 +80,7 @@ npx tsx src/test/transcript.test.ts
 
 ## How it works
 
-The plugin calls YouTube's player API (the same one their mobile app uses) to get caption track URLs. It downloads the XML transcript, decodes the HTML entities, and formats it as text.
+The plugin uses the [youtube-transcript-plus](https://github.com/ericmmartin/youtube-transcript-plus) library, which calls YouTube's player API to get caption track URLs. It downloads the transcript, decodes HTML entities, and formats it as text.
 
 If a video has multiple languages, it picks the one matching your language setting, or falls back to whatever's available.
 
@@ -100,6 +100,10 @@ The plugin only talks to YouTube. No analytics, no tracking, no data collection.
 MIT License - Copyright (c) 2026 Astor Ayestas
 
 See [LICENSE](LICENSE) for the full text.
+
+## Acknowledgments
+
+This plugin uses [youtube-transcript-plus](https://github.com/ericmmartin/youtube-transcript-plus) by Eric Martin (MIT License) for fetching YouTube transcripts.
 
 ## Author
 

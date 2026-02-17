@@ -35,8 +35,8 @@ export default class YouTubeTranscriptPlugin extends Plugin {
       return;
     }
 
-    const file = view.file;
-    const content = await this.app.vault.read(file);
+    const editor = view.editor;
+    const content = editor.getValue();
 
     if (hasTranscriptSection(content, this.settings.sectionHeading)) {
       new Notice("This note already has a transcript section");
@@ -74,15 +74,17 @@ export default class YouTubeTranscriptPlugin extends Plugin {
         sectionHeading: this.settings.sectionHeading,
       });
 
-      await this.app.vault.modify(file, content + "\n" + formatted);
+      // Use Editor API to preserve cursor position and selection
+      const lastLine = editor.lastLine();
+      const lastLineLength = editor.getLine(lastLine).length;
+      editor.replaceRange("\n" + formatted, { line: lastLine, ch: lastLineLength });
+
       new Notice(`Transcript added (${transcript.length} entries)`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       new Notice(`Failed to fetch transcript: ${message}`);
     }
   }
-
-  onunload(): void {}
 
   async loadSettings(): Promise<void> {
     this.settings = Object.assign(
