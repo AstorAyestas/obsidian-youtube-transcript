@@ -1,7 +1,7 @@
 {
   "id": "youtube-transcript",
   "name": "YouTube Transcript",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "minAppVersion": "0.15.0",
   "description": "Fetch and add YouTube video transcripts to your notes. Works great with Obsidian Clipper.",
   "author": "Astor Ayestas",
